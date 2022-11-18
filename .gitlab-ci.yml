@@ -1,0 +1,18 @@
+stages:
+  - build-release
+
+front:build-release:
+  stage: build-release
+  variables:
+    CONFIGURATION: "Release"
+  script:
+    - dotnet restore
+    - C:\"Program Files (x86)"\"Microsoft Visual Studio"\2019\Community\MSBuild\Current\Bin\MSBuild.exe .\PostmanApplication\PostmanApplication.csproj /p:Configuration=$CONFIGURATION
+  tags:
+    - windows
+  artifacts:
+    when: on_success  # save test results even when the task fails
+    expire_in: 1 day  # save gitlab server space, we copy the files we need to deploy folder later on
+    name: $CI_PROJECT_TITLE
+    paths:
+      - bin\$CONFIGURATION\
