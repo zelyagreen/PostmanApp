@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using PostmanApplication.Interfaces;
@@ -31,17 +30,27 @@ namespace PostmanApplication
 
         public class Postmans : ISender
         {
+            /// <summary>
+            /// Максимальное количество потоков
+            /// </summary>
             private readonly int _maxThreads = 10;
             /// <summary>
             /// Список, куда следует поместить все сообщения, которые не удалось доставить
             /// </summary>
             private IEnumerable<IMessage> _failedMessages;
+            /// <summary>
+            /// Обезопасить поток, при параллельом сохранении в файл
+            /// </summary>
             private readonly Mutex m = new Mutex();
-            private readonly string filePathForMessage = @"C:\Users\userg\source\repos\GetAllSequences\PostmanApplicationlication\bin\Debug\Messages";
+            /// <summary>
+            /// Репозиторий пользователей
+            /// </summary>
             private UserRepository _userRepository;
+            /// <summary>
+            /// Для запуска отправки, проверки или в нашем случае - сохранения в файл неотправленных сообщений
+            /// </summary>
             private static TimerCallback _callBack { get; set; }
             private static System.Threading.Timer _timer { get; set; }
-
 
             public Postmans(IEnumerable<Message> messages, List<User> users)
             {
@@ -56,12 +65,17 @@ namespace PostmanApplication
                 _timer = new System.Threading.Timer(_callBack, null, 0, 60 * 1000);
             }
 
+            /// <summary>
+            /// Метод сохранения неотправленных сообщений
+            /// </summary>
             private async void SaveFailMessage(object state)
             {
                 if (_failedMessages.Count() > 0)
                 {
+                    DateTime dateTime = DateTime.Now;
+                    long unixTime = ((DateTimeOffset)dateTime).ToUnixTimeSeconds();
                     foreach (var failMessage in _failedMessages)
-                        using (FileStream stream = new FileStream(Path.Combine(filePathForMessage, $@"\Fails\ErrorMessages{DateTime.Now.ToString("dd/MM/yyyy/HH:mm::ss")}.txt"), FileMode.Create))
+                        using (FileStream stream = new FileStream($@"C:\FailMessages\{failMessage.UserId} {unixTime}.txt", FileMode.Create))
                         using (StreamWriter sw = new StreamWriter(stream))
                         {
                             await sw.WriteLineAsync($"FailMessage: \n {failMessage.MessageText} \n UserId: \n {failMessage.UserId} ");
@@ -69,6 +83,12 @@ namespace PostmanApplication
                 }
             }
 
+            /// <summary>
+            /// Парсим все сообщения и пользователей
+            /// для отправки в конечную точку, у каждого сенда в перспективе своя реализация
+            /// </summary>
+            /// <param name="messages"> сообщение для клиента </param>
+            /// <param name="userRepository"> адрес клиента </param>
             public async Task RunTasks(IEnumerable<Message> messages, UserRepository userRepository)
             {
                 var repository = userRepository;
@@ -101,8 +121,6 @@ namespace PostmanApplication
                     task.Start();
                 });
 
-                //tasks.Add(Task.Run(() => Send(messages)));
-                //// ...
                 await Task.WhenAll(tasks);
             }
 
@@ -112,22 +130,15 @@ namespace PostmanApplication
             /// по адресу, указанным в записи пользователя
             /// В случае, если сообщение не удалось доставить, помещает его в  FailedMessages
             /// </summary>
-            /// <param name="messages"> сообщение для клиента </param>
+            /// <param name="message"> сообщение для клиента </param>
             /// <param name="address"> адрес клиента </param>
+            /// <param name="userId"> идентификатор клиента </param>
             public async Task SendTelegram(string message, string address, string userId)
             {
                 m.WaitOne();
                 try
                 {
-                    DateTime dateTime = DateTime.Now;
-                    long unixTime = ((DateTimeOffset)dateTime).ToUnixTimeSeconds();
-
-                    Console.WriteLine($"{Thread.CurrentThread.GetHashCode()}");
-                    using (FileStream stream = new FileStream($@"C:\Messages\{userId} {unixTime}.txt", FileMode.Create))
-                    using (StreamWriter sw = new StreamWriter(stream))
-                    {
-                        await sw.WriteLineAsync($"Message: \n {message} \nUserId: \n {userId} ");
-                    }
+                    await SaveMessageLikeSend(message, userId);
                 }
                 catch (Exception ex)
                 {
@@ -149,21 +160,15 @@ namespace PostmanApplication
             /// по адресу, указанным в записи пользователя
             /// В случае, если сообщение не удалось доставить, помещает его в  FailedMessages
             /// </summary>
-            /// <param name="messages"> сообщение для клиента </param>
+            /// <param name="message"> сообщение для клиента </param>
             /// <param name="address"> адрес клиента </param>
+            /// <param name="userId"> идентификатор клиента </param>
             public async Task SendPhone(string message, string address, string userId)
             {
                 m.WaitOne();
                 try
                 {
-                    DateTime dateTime = DateTime.Now;
-                    long unixTime = ((DateTimeOffset)dateTime).ToUnixTimeSeconds();
-                    Console.WriteLine($"{Thread.CurrentThread.GetHashCode()}");
-                    using (FileStream stream = new FileStream($@"C:\Messages\{userId} {unixTime}.txt", FileMode.Create))
-                    using (StreamWriter sw = new StreamWriter(stream))
-                    {
-                        await sw.WriteLineAsync($"Message: \n {message} \nUserId: \n {userId} ");
-                    }
+                    await SaveMessageLikeSend(message, userId);
                 }
                 catch (Exception ex)
                 {
@@ -183,21 +188,15 @@ namespace PostmanApplication
             /// по адресу, указанным в записи пользователя
             /// В случае, если сообщение не удалось доставить, помещает его в  FailedMessages
             /// </summary>
-            /// <param name="messages"> сообщение для клиента </param>
+            /// <param name="message"> сообщение для клиента </param>
             /// <param name="address"> адрес клиента </param>
+            /// <param name="userId"> идентификатор клиента </param>
             public async Task SendEmail(string message, string address, string userId)
             {
                 m.WaitOne();
                 try
                 {
-                    DateTime dateTime = DateTime.Now;
-                    long unixTime = ((DateTimeOffset)dateTime).ToUnixTimeSeconds();
-                    Console.WriteLine($"{Thread.CurrentThread.GetHashCode()}");
-                    using (FileStream stream = new FileStream($@"C:\Messages\{userId} {unixTime}.txt", FileMode.Create))
-                    using (StreamWriter sw = new StreamWriter(stream))
-                    {
-                        await sw.WriteLineAsync($"Message: \n {message} \nUserId: \n {userId} ");
-                    }
+                    await SaveMessageLikeSend(message, userId);
                 }
                 catch (Exception ex)
                 {
@@ -211,9 +210,29 @@ namespace PostmanApplication
                 }
             }
 
+            /// <summary>
+            /// Сохраняет сообщения в файлы, так как в данной реализации нет отправки, 
+            /// в дальнейшем можем использовать для логирования
+            /// </summary>
+            /// <param name="message"> сообщение для клиента </param>
+            /// <param name="userId"> адрес клиента </param>
+            private async Task SaveMessageLikeSend(string message, string userId)
+            {
+                DateTime dateTime = DateTime.Now;
+                long unixTime = ((DateTimeOffset)dateTime).ToUnixTimeSeconds();
 
+                Console.WriteLine($"{Thread.CurrentThread.GetHashCode()}");
+                using (FileStream stream = new FileStream($@"C:\Messages\{userId} {unixTime}.txt", FileMode.Create))
+                using (StreamWriter sw = new StreamWriter(stream))
+                {
+                    await sw.WriteLineAsync($"Message: \n {message} \nUserId: \n {userId} ");
+                }
+            }
         }
 
+        /// <summary>
+        /// Карточка пользователя с id, адрессом и методом отправки
+        /// </summary>
         public class User : IUser
         {
             public string Id { get; set; }
@@ -221,9 +240,11 @@ namespace PostmanApplication
             public int DeliveryMethod { get; set; }
 
             public string Address { get; set; }
-
         }
 
+        /// <summary>
+        /// База пользователей
+        /// </summary>
         public class UserRepository : IUserRepository
         {
             private List<User> _users { get; set; }
@@ -240,6 +261,9 @@ namespace PostmanApplication
             }
         }
 
+        /// <summary>
+        /// Сообщение. Содержит id пользователя и текст сообщения
+        /// </summary>
         public class Message : IMessage
         {
             public string UserId { get; set; }

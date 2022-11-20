@@ -8,6 +8,9 @@ namespace PostmanApplication.Interfaces
 {
     public interface IUserRepository
     {
+        /// <summary>
+        /// Метод получения карточки пользователя по его id
+        /// </summary>
         IUser Get(string userId);
     }
 }
